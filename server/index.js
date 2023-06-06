@@ -5,11 +5,14 @@ import mongoose from "mongoose"
 import cors from "cors"
 import {Flight} from "./models/flight.js"
 import {User} from "./models/user.js"
+import {Admin} from "./models/admin.js"
 
 mongoose.connect("mongodb+srv://nsriganesh2002:goldfish@cluster0.vo6yxrm.mongodb.net/").then(console.log("db connected"))
 app.use(express.json())
 app.use(cors())
 
+
+//user registration
 app.post('/register', async (req,res) => {
   const {username,password} = req.body;
   try{
@@ -24,6 +27,8 @@ app.post('/register', async (req,res) => {
   }
 }); 
 
+
+//user login
 app.post('/userlogin', async (req,res) => {
   const {username,password} = req.body;
   const userDoc = await User.findOne({username});
@@ -36,10 +41,15 @@ app.post('/userlogin', async (req,res) => {
   }
 });
 
+
+
+
+
+//admin login
 app.post('/adminlogin', async (req,res) => {
   const {username,password} = req.body;
-  const userDoc = await User.findOne({username});
-  
+  const userDoc = await Admin.findOne({username});
+  console.log(userDoc);
   if (password===userDoc.password) {
     res.status(200).json('login successful');
   }
@@ -48,6 +58,8 @@ app.post('/adminlogin', async (req,res) => {
   }
 });
 
+
+//admin flight data upload
 app.post('/flight/populate',async(req,res)=>{
   const{flightNumber,flightName,fromLocation,toLocation,departure,arrival,date,user}=req.body
   const entryset=new Flight({flightNumber,flightName,fromLocation,toLocation,departure,arrival,date,user})
@@ -63,6 +75,8 @@ app.post('/flight/populate',async(req,res)=>{
   }
 })
 
+
+//user searches for flight based on date and time
 app.post('/flight/find',async(req,res)=>{
   const {date,time}=req.body;
   const data=await Flight.find({date:date,arrival:time})
@@ -74,10 +88,10 @@ app.post('/flight/find',async(req,res)=>{
   }
   })
 
-
+//user Booking tickets on a flight based on availability (assuming the default seat count is 60)
   app.post('/user/:id/bookingflights',async(req,res)=>{
     const{id}=req.params;
-    const{flightName,flightNumber,date,arrival}=req.body;
+    const{flightName,flightNumber,date,arrival,name,bdate}=req.body;
     // console.log(flightNumber)
     try{
       const data=await User.findById(id)
@@ -95,7 +109,7 @@ app.post('/flight/find',async(req,res)=>{
         cflightBooked.push({flightName,flightNumber,date})
         //console.log(cflightBooked.length)
         await User.findByIdAndUpdate(id,{flightBooked:cflightBooked})
-        cuser.push(id)
+        cuser.push({id,name,bdate})
         //console.log(cuser.length)
         await Flight.findOneAndUpdate({flightNumber},{user:cuser})
         res.status(200).json("Booked successfully")
@@ -111,13 +125,13 @@ app.post('/flight/find',async(req,res)=>{
   })
 
 
-
+// user 	My Booking -> to list out all the bookings made by that user
   app.get('/user/flights/:id',async(req,res)=>{
     const{id}=req.params
     const data=User.findById(id)
     if(data){
 	    if(data.flightBooked.length===0){
-	      res.status(404).json("There no flights booked by this particular user")
+	      res.status(404).json("There is no flights booked by this particular user")
 	    }
 	    else{
 	      res.status(200).json({Bookedflights:data.flightBooked})
@@ -128,6 +142,8 @@ app.post('/flight/find',async(req,res)=>{
     }
   })
 
+
+  //admin 	Remove flights
   app.post("/admin/removeflight",async(req, res) =>{
     
     const{flightNumber,arrival}=req.body
@@ -142,15 +158,19 @@ app.post('/flight/find',async(req,res)=>{
     }
   })
 
+
+  //admin View all the booking based on flight number and time
   app.post("/admin/booking",async(req, res) =>{
     const{flightNumber,arrival}=req.body
+    
     try{
       const data=await Flight.findOne({flightNumber:flightNumber,arrival:arrival})
-      res.status(200).json("bookings : "+data.user.length)
+      res.status(200).json(data.user)
     }
     catch(err){
     res.status(400).json("not found")
     }
+
   })
 
  
