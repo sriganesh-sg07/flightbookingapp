@@ -1,62 +1,131 @@
 import express, { response } from "express";
-
-const app=express()
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 import mongoose from "mongoose"
 import cors from "cors"
 import {Flight} from "./models/flight.js"
 import {User} from "./models/user.js"
 import {Admin} from "./models/admin.js"
 
+const app=express()
+
 mongoose.connect("mongodb+srv://nsriganesh2002:goldfish@cluster0.vo6yxrm.mongodb.net/").then(console.log("db connected"))
 app.use(express.json())
 app.use(cors())
 
 
+
+
+
+
+
+
 //user registration
-app.post('/register', async (req,res) => {
-  const {username,password} = req.body;
-  try{
-    const userDoc = await User.create({
-      username,
-      password,
-    });
-    res.json(userDoc);
-  } catch(e) {
-    console.log(e);
-    res.status(400).json(e);
-  }
-}); 
-
-
-//user login
-app.post('/userlogin', async (req,res) => {
-  const {username,password} = req.body;
-  const userDoc = await User.findOne({username});
+app.post('/userregister', async (req, res) => {
+  const { username, password } = req.body;
   
-  if (password===userDoc.password) {
-    res.status(200).json('login successful');
+  // Check if the username is already taken
+  const existingUser = await User.findOne({ username });
+  if (existingUser) {
+    res.status(400).json('Username already exists');
+    return;
   }
-  else {
-    res.status(400).json('wrong credentials');
-  }
+
+  // Hash the password
+  const saltRounds = 10;
+  const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+  // Create a new user document with the hashed password
+  const newUser = new User({
+    username,
+    password: hashedPassword,
+  });
+
+  // Save the user document
+  await newUser.save();
+
+  res.status(200).json('Registration successful');
 });
-
-
 
 
 
 //admin login
-app.post('/adminlogin', async (req,res) => {
-  const {username,password} = req.body;
-  const userDoc = await Admin.findOne({username});
-  console.log(userDoc);
-  if (password===userDoc.password) {
-    res.status(200).json('login successful');
+app.post('/adminlogin', async (req, res) => {
+  const { username, password } = req.body;
+  const userDoc = await Admin.findOne({ username });
+  //console.log(userDoc);
+  if (!userDoc) {
+    res.status(400).json('Admin not found');
+    return;
   }
-  else {
-    res.status(400).json('wrong credentials');
+
+  const isPasswordMatch = await bcrypt.compare(password, userDoc.password);
+
+  if (isPasswordMatch) {
+    const token = jwt.sign({ username: userDoc.username }, 'your_secret_key');
+    //console.log(token)
+    res.status(200).json({ token: token });
+  } else {
+    res.status(400).json('Wrong credentials');
   }
 });
+
+
+
+
+
+
+//user login
+app.post('/userlogin', async (req, res) => {
+  const { username, password } = req.body;
+  const userDoc = await User.findOne({ username });
+  console.log(userDoc);
+  if (!userDoc) {
+    res.status(400).json('User not found');
+    return;
+  }
+
+  const isPasswordMatch = await bcrypt.compare(password, userDoc.password);
+
+  if (isPasswordMatch) {
+    const token = jwt.sign({ username: userDoc.username }, 'your_secret_key');
+    console.log(token)
+    
+    res.status(200).json({ token: token });
+    
+    
+  } else {
+    res.status(400).json('Wrong credentials');
+  }
+});
+
+//authentication for both admin and user login
+function authenticateToken(req, res, next) {
+  const token = req.headers['authorization'];
+
+  if (!token) {
+    return res.status(401).json('Access denied');
+  }
+
+  jwt.verify(token, 'your_secret_key', (err, decoded) => {
+    if (err) {
+      return res.status(403).json('Invalid token');
+    }
+    req.username = decoded.username;
+    next();
+    
+  });
+}
+
+
+
+
+
+
+
+
+
+
 
 
 //admin flight data upload
@@ -103,7 +172,7 @@ app.post('/flight/find',async(req,res)=>{
       const flightdata=await Flight.findOne({flightNumber:flightNumber,arrival})
       // console.log(flightdata)
       const{user:cuser}=flightdata;
-      console.log(cuser.length)
+     
       
       if(cuser.length<=60){
         cflightBooked.push({flightName,flightNumber,date})
@@ -112,7 +181,8 @@ app.post('/flight/find',async(req,res)=>{
         cuser.push({id,name,bdate})
         //console.log(cuser.length)
         await Flight.findOneAndUpdate({flightNumber},{user:cuser})
-        res.status(200).json("Booked successfully")
+        res.status(200).json({message:"Booked successfully",available_seats:60-cuser.length})
+        console.log(60-cuser.length)
       }
       else{
         res.status(400).json("Flight capacity full");
