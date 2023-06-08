@@ -1,11 +1,11 @@
 import axios from "axios"
 import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
-
 const Userlogin = () => {
   const navigate=useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  // const [id,setId]=useState('');
 
 
   const handleUsernameChange = (e) => {
@@ -20,8 +20,10 @@ const Userlogin = () => {
     e.preventDefault();
     try{
     const token=await axios.post("http://localhost:3000/userlogin",{username,password})
-    console.log(token);
-    navigate('/userhome')
+    window.localStorage.setItem("userID", token.data.id);
+    const id=window.localStorage.getItem("userID");
+    // const id=token.data.id;
+    navigate(`/${id}/userhome`)
     }
     catch(e){
         console.log(e);

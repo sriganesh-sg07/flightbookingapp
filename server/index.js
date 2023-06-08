@@ -79,6 +79,7 @@ app.post('/adminlogin', async (req, res) => {
 app.post('/userlogin', async (req, res) => {
   const { username, password } = req.body;
   const userDoc = await User.findOne({ username });
+  const {id}=userDoc;
   console.log(userDoc);
   if (!userDoc) {
     res.status(400).json('User not found');
@@ -91,7 +92,7 @@ app.post('/userlogin', async (req, res) => {
     const token = jwt.sign({ username: userDoc.username }, 'your_secret_key');
     console.log(token)
     
-    res.status(200).json({ token: token });
+    res.status(200).json({ token: token ,id});
     
     
   } else {
@@ -198,10 +199,11 @@ app.post('/flight/find',async(req,res)=>{
 // user 	My Booking -> to list out all the bookings made by that user
   app.get('/user/flights/:id',async(req,res)=>{
     const{id}=req.params
-    const data=User.findById(id)
+    const data=await User.findById(id)
+    console.log(data);
     if(data){
 	    if(data.flightBooked.length===0){
-	      res.status(404).json("There is no flights booked by this particular user")
+	      res.status(400).json("There is no flights booked by this particular user")
 	    }
 	    else{
 	      res.status(200).json({Bookedflights:data.flightBooked})
